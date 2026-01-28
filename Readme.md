@@ -88,6 +88,22 @@ Common flags:
 - `editable`: false to disable edits (equivalent to readOnly)
 - `disableHover`: true to disable hover-based selection updates
 
+Boolean cells (Checkboxes):
+
+- `booleanColumns`: array of column indices to render as checkboxes (e.g., `[2, 5]`)
+- `booleanRows`: array of row indices to render as checkboxes (e.g., `[3, 7]`)
+
+Boolean cells display a checkmark (✓) for `true` values and a crossed circle (⦻) for `false` values. Users can click to toggle between true/false. The first row (headers) is automatically excluded from boolean rendering.
+
+Example:
+```js
+let options = {
+  tableHeight: "70vh",
+  booleanColumns: [5],  // Column 5 will show checkboxes
+  booleanRows: [10],    // Row 10 will show checkboxes
+};
+```
+
 Theme:
 
 - `theme`: set to `"dark"` for the bundled dark tokens (default is `"light"`)
