@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import XLSX from "xlsx";
-  import { resizable } from "./actions";
-  import { draggable } from "./actions/draggable";
-  import type { Config } from "./defaultconfig";
-  import { defaultconfig } from "./defaultconfig";
+  import { resizable } from "./actions/index.js";
+  import { draggable } from "./actions/draggable.js";
+  import type { Config } from "./defaultconfig.js";
+  import { defaultconfig } from "./defaultconfig.js";
   import hotkeys from "hotkeys-js";
   import Menu from "./Menu.svelte";
   import {
@@ -15,7 +15,7 @@
     GetRowSpan,
     mergeSelectExtends,
     pasteSelection,
-  } from "./utilities";
+  } from "./utilities.js";
 
   export let data: (string | number | boolean)[][] = [];
   export let columns: any[] = [];
@@ -31,6 +31,8 @@
   export let clipboard: [string, string];
 
   export let options: Config;
+  export let className = "";
+  export let theme: "light" | "dark" | string = "light";
 
   const encode = ({ c, r }) =>
     XLSX.utils.encode_cell({ c: Number(c), r: Number(r) });
@@ -45,6 +47,13 @@
     ...defaultconfig,
     ...(options || {}),
   };
+  const { class: _ignoredClass, ...restProps } =
+    ($$restProps as Record<string, any>) || {};
+  let isReadOnly = false;
+  $: isReadOnly = !config.editable || config.readOnly;
+  $: rootClass = `${className} ${_ignoredClass || ""} ${
+    theme ? `sheet-theme-${theme}` : ""
+  }`.trim();
   // Containers
   let history: string[] = [];
   let highlighted = [];
@@ -62,6 +71,10 @@
   let resizing = null;
   let dragging = null;
   let keypressed = {};
+  let hoverRaf: number | null = null;
+  let pendingHover: { x: number; y: number } | null = null;
+  let lastHover: { x: number; y: number } | null = null;
+  let lastDrag: { x: number; y: number } | null = null;
 
   // $: ((_) => {
   //   history = history.slice(0, historyIndex);
@@ -146,6 +159,7 @@
   }
 
   export function onInputChange(value, row, column) {
+    if (isReadOnly) return;
     cmdz = true;
     if (row.i > data.length - 1) {
       data = [
@@ -316,6 +330,7 @@
     if (e.which == 3) return;
     console.log("mousedown", e.which);
     if (e.target.id == "square") {
+      if (isReadOnly) return;
       extension = true;
       selection = false;
       return;
@@ -339,6 +354,11 @@
   }
 
   function onMouseUp(e) {
+    if (isReadOnly && extension) {
+      extension = false;
+      selection = false;
+      return;
+    }
     if (!!selected && !selection && extension) {
       extension = false;
       data = mergeSelectExtends(data, selected, extended);
@@ -351,61 +371,66 @@
   }
 
   function onMouseOver(e) {
+    if (config.disableHover) return;
     if (!!edition) return;
-    if (!!selected && !selection && extension && e.target?.dataset?.x) {
-      if (
-        // extended is inside selected
-        e.target?.dataset?.x >= topLeft.c &&
-        e.target?.dataset?.x < bottomRight.c &&
-        e.target?.dataset?.y >= topLeft.r &&
-        e.target?.dataset?.y < bottomRight.r
-      ) {
-        extended = [
-          encode(topLeft),
-          encode({
-            c: e.target.dataset.x,
-            r: e.target.dataset.y,
-          }),
-        ];
+    const x = Number(e.target?.dataset?.x);
+    const y = Number(e.target?.dataset?.y);
+    if (Number.isNaN(x) || Number.isNaN(y)) return;
+    pendingHover = { x, y };
+    if (hoverRaf) return;
+    hoverRaf = requestAnimationFrame(() => {
+      hoverRaf = null;
+      if (!pendingHover) return;
+      if (lastHover && lastHover.x === pendingHover.x && lastHover.y === pendingHover.y) {
+        pendingHover = null;
         return;
       }
-      if (
-        e.target?.dataset?.y >= topLeft.r &&
-        e.target?.dataset?.y < bottomRight.r
-      ) {
-        extended = [
-          squareX < 0
-            ? encode({ c: bottomRight.c - 1, r: topLeft.r })
-            : selected[0],
-          encode({ r: decoded[1].r, c: e.target.dataset.x }),
+      lastHover = pendingHover;
+      const hovered = pendingHover;
+      pendingHover = null;
+      if (!!selected && !selection && extension) {
+        if (
+          // extended is inside selected
+          hovered.x >= topLeft.c &&
+          hovered.x < bottomRight.c &&
+          hovered.y >= topLeft.r &&
+          hovered.y < bottomRight.r
+        ) {
+          extended = [
+            encode(topLeft),
+            encode({
+              c: hovered.x,
+              r: hovered.y,
+            }),
+          ];
+          return;
+        }
+        if (hovered.y >= topLeft.r && hovered.y < bottomRight.r) {
+          extended = [
+            squareX < 0
+              ? encode({ c: bottomRight.c - 1, r: topLeft.r })
+              : selected[0],
+            encode({ r: decoded[1].r, c: hovered.x }),
+          ];
+        }
+        if (hovered.x >= topLeft.c && hovered.x < bottomRight.c) {
+          extended = [
+            squareY < 0
+              ? encode({ r: bottomRight.r - 1, c: topLeft.c })
+              : selected[0],
+            encode({ r: hovered.y, c: decoded[1].c }),
+          ];
+        }
+        return;
+      }
+      if (selection && !!selected) {
+        selected = [
+          selected[0] || encode({ c: hovered.x, r: hovered.y }),
+          encode({ c: hovered.x, r: hovered.y }),
         ];
       }
-      if (
-        e.target?.dataset?.x >= topLeft.c &&
-        e.target?.dataset?.x < bottomRight.c
-      ) {
-        extended = [
-          squareY < 0
-            ? encode({ r: bottomRight.r - 1, c: topLeft.c })
-            : selected[0],
-          encode({ r: e.target.dataset.y, c: decoded[1].c }),
-        ];
-      }
-      return;
-    }
-    if (selection && !!selected && e.target?.dataset?.x) {
-      selected = [
-        selected[0] ||
-          encode({
-            c: e.target.dataset.x,
-            r: e.target.dataset.y,
-          }),
-        encode({
-          c: e.target.dataset.x,
-          r: e.target.dataset.y,
-        }),
-      ];
-    }
+    });
+    return;
   }
 
   function onKeyUp(e) {
@@ -414,6 +439,7 @@
   }
 
   hotkeys("ctrl+z, command+z", function (e) {
+    if (isReadOnly) return;
     e.preventDefault();
     cmdz = true;
     if (historyIndex == 0) return;
@@ -427,6 +453,7 @@
   });
 
   hotkeys("ctrl+shift+z, command+shift+z", function (e) {
+    if (isReadOnly) return;
     console.log("redo");
     e.preventDefault();
     cmdz = true;
@@ -440,12 +467,14 @@
     setTimeout((_) => (cmdz = false), 10);
   });
 
-  hotkeys("ctrl+c, command+c, ctrl+x, command+x", function (e) {
+  hotkeys("ctrl+c, command+c, ctrl+x, command+x", function (e, handler) {
+    if (isReadOnly && handler?.key?.includes("x")) return;
     e.preventDefault();
     clipboard = JSON.stringify(selected);
   });
 
   hotkeys("ctrl+v, command+v", function (e) {
+    if (isReadOnly) return;
     e.preventDefault();
     if (!clipboard) return;
     data = pasteSelection(data, JSON.parse(clipboard), selected);
@@ -660,10 +689,11 @@
   }
 </script>
 
-<div
-  class="w-full sheet_container"
-  class:fullscreen={!!config.fullscreen}
-  class:with-toolbar={config.tableOverflow != true && config.toolbar}
+  <div
+    {...restProps}
+    class={`w-full sheet_container ${rootClass}`}
+    class:fullscreen={!!config.fullscreen}
+    class:with-toolbar={config.tableOverflow != true && config.toolbar}
   on:contextmenu={(e) => showMenu(e)}
   on:mousedown={onMouseDown}
   on:mouseup={onMouseUp}
@@ -682,62 +712,74 @@
     bind:offsetWidth={viewport_width}
     on:scroll={handle_scroll}
   >
-    <table
-      cellpadding="0"
-      cellspacing="0"
-      unselectable={true}
-      on:click={(e) => (menuX = 0)}
-      style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
-      bind:this={contents}
-    >
-      <div
-        class="top-extend absolute"
-        class:hidden={!extension}
-        bind:this={topextend}
-      />
-      <div
-        class="bottom-extend absolute"
-        class:hidden={!extension}
-        bind:this={bottomextend}
-      />
-      <div
-        class="left-extend absolute"
-        class:hidden={!extension}
-        bind:this={leftextend}
-      />
-      <div
-        class="right-extend absolute"
-        class:hidden={!extension}
-        bind:this={rightextend}
-      />
-      <div class="top-select absolute" bind:this={tops} />
-      <div class="bottom-select absolute" bind:this={bottoms} />
-      <div class="left-select absolute" bind:this={lefts} />
-      <div class="right-select absolute" bind:this={rights} />
-      <div class="col-line absolute" bind:this={colLine} />
-      <div class="row-line absolute" bind:this={rowLine} />
-      <div
-        tabindex={-1}
+    <div class="sheet-layer">
+      <div class="overlay-layer">
+        <div
+          class="top-extend absolute"
+          class:hidden={!extension}
+          bind:this={topextend}
+        />
+        <div
+          class="bottom-extend absolute"
+          class:hidden={!extension}
+          bind:this={bottomextend}
+        />
+        <div
+          class="left-extend absolute"
+          class:hidden={!extension}
+          bind:this={leftextend}
+        />
+        <div
+          class="right-extend absolute"
+          class:hidden={!extension}
+          bind:this={rightextend}
+        />
+        <div class="top-select absolute" bind:this={tops} />
+        <div class="bottom-select absolute" bind:this={bottoms} />
+        <div class="left-select absolute" bind:this={lefts} />
+        <div class="right-select absolute" bind:this={rights} />
+        <div class="col-line absolute" bind:this={colLine} />
+        <div class="row-line absolute" bind:this={rowLine} />
+        <div
+          tabindex={-1}
         use:draggable
         on:dragging={(e) => {
+          if (isReadOnly) return;
+          if (lastDrag && lastDrag.x === e.detail.x && lastDrag.y === e.detail.y) {
+            return;
+          }
+          lastDrag = { x: e.detail.x, y: e.detail.y };
           squareX = e.detail.x;
           squareY = e.detail.y;
         }}
-        class="square absolute"
-        id="square"
-        bind:this={square}
-      />
+          class="square absolute interactive"
+          id="square"
+          bind:this={square}
+        />
+        <div class="interactive">
       <Menu
         show={!!menuX}
         x={menuX}
         y={menuY}
+        selected={selected}
         copy={(e) => (clipboard = selected)}
         cut={(e) => (clipboard = selected)}
-        paste={(e) => (data = pasteSelection(data, clipboard, selected))}
-        clear={(e) => (data = clearSelection(data, selected))}
-        delet={(e) => (data = deleteSelection(data, selected))}
+        paste={(e) => !isReadOnly && (data = pasteSelection(data, clipboard, selected))}
+        clear={(e) => !isReadOnly && (data = clearSelection(data, selected))}
+        delet={(e) => !isReadOnly && (data = deleteSelection(data, selected))}
+        readOnly={isReadOnly}
       />
-      <colgroup>
+        </div>
+      </div>
+      <table
+        cellpadding="0"
+        cellspacing="0"
+        unselectable={true}
+        on:click={(e) => (menuX = 0)}
+        style="padding-top: {top}px; padding-bottom: {bottom}px; padding-left: {left}px; padding-right: {right}px;"
+        bind:this={contents}
+      >
+        <colgroup>
         <col width={50} />
         {#each visibleX as v}
           <col width={getColumnsWidth(v.i)} />
@@ -782,26 +824,30 @@
               style={`text-align: ${c.data.align || config.defaultColAlign};`}
             >
               {c.data.title || XLSX.utils.encode_col(c.i)}
-              <div
-                use:resizable
-                on:resizing={(e) =>
+                <div
+                  use:resizable
+                  on:resizing={(e) =>
+                  !isReadOnly &&
+                  e.detail.x !== 0 &&
                   c.i != 0 &&
                   (columns[c.i - 1] = {
                     ...(columns[c.i - 1] || {}),
                     width: getColumnsWidth(c.i - 1) + e.detail.x,
                   })}
-                class="col-resize left"
-              />
-              <div
-                class="col-resize right"
-                use:resizable
-                on:resizing={(e) =>
+                  class="col-resize left"
+                />
+                <div
+                  class="col-resize right"
+                  use:resizable
+                  on:resizing={(e) =>
+                  !isReadOnly &&
+                  e.detail.x !== 0 &&
                   (columns[c.i] = {
                     ...(columns[c.i] || {}),
                     width: getColumnsWidth(c.i) + e.detail.x,
                   })}
-              />
-            </td>
+                />
+              </td>
           {/each}
         </tr>
       </thead>
@@ -818,7 +864,7 @@
                 r.i >= topLeft.r &&
                 bottomRight.r - 1 >= r.i}
               style={`background-color:
-              #f3f3f3;
+              var(--sheet-header-bg);
               text-align:
               center;
               height:
@@ -848,20 +894,24 @@
                 class="row-resize top"
                 use:resizable
                 on:resizing={(e) =>
-                  r.i != 0 &&
-                  (rows[r.i - 1] = {
-                    ...(rows[r.i - 1] || {}),
-                    height: getRowHeight(r.i - 1) + e.detail.y,
-                  })}
+                !isReadOnly &&
+                e.detail.y !== 0 &&
+                r.i != 0 &&
+                (rows[r.i - 1] = {
+                  ...(rows[r.i - 1] || {}),
+                  height: getRowHeight(r.i - 1) + e.detail.y,
+                })}
               />
               <div
                 class="row-resize bottom"
                 use:resizable
                 on:resizing={(e) =>
-                  (rows[r.i] = {
-                    ...(rows[r.i] || {}),
-                    height: getRowHeight(r.i) + e.detail.y,
-                  })}
+                !isReadOnly &&
+                e.detail.y !== 0 &&
+                (rows[r.i] = {
+                  ...(rows[r.i] || {}),
+                  height: getRowHeight(r.i) + e.detail.y,
+                })}
               />
               {r.i + 1}
             </th>
@@ -877,7 +927,10 @@
                   x.i < bottomRight.c &&
                   r.i >= topLeft.r &&
                   r.i < bottomRight.r}
-                on:dblclick={(_) => (edition = [x.i, r.i])}
+                on:dblclick={(_) =>
+                  !isReadOnly &&
+                  !(columns[x.i] && columns[x.i].readOnly) &&
+                  (edition = [x.i, r.i])}
                 class:readonly={columns[x.i] && columns[x.i].readOnly}
                 style={computeStyles(
                   x.i,
@@ -909,6 +962,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -919,7 +973,7 @@
     box-sizing: border-box;
     border-width: 0;
     border-style: solid;
-    border-color: #e0e0e0;
+    border-color: var(--sheet-border-muted);
   }
 
   :root {
@@ -931,7 +985,34 @@
     max-width: 100vw;
     max-height: 100vh;
   }
+  .sheet-layer {
+    position: relative;
+    min-width: max-content;
+  }
+  .overlay-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .overlay-layer .interactive {
+    pointer-events: auto;
+  }
   .sheet_container {
+    --sheet-bg: #ffffff;
+    --sheet-border: #cccccc;
+    --sheet-border-muted: #e0e0e0;
+    --sheet-header-bg: #f3f3f3;
+    --sheet-header-selected-bg: #dcdcdc;
+    --sheet-selection-bg: #dddddd;
+    --sheet-accent: #1b7f7a;
+    --sheet-accent-strong: #0f5e5a;
+    --sheet-menu-bg: #dddddd;
+    --sheet-muted: #aaaaaa;
+    --sheet-text: #222222;
     display: block;
     padding-right: 2px;
     box-sizing: border-box;
@@ -939,6 +1020,20 @@
     outline: none;
     position: relative;
     user-select: none;
+    color: var(--sheet-text);
+  }
+  .sheet-theme-dark {
+    --sheet-bg: #12161a;
+    --sheet-border: #2b3238;
+    --sheet-border-muted: #242a30;
+    --sheet-header-bg: #1b2026;
+    --sheet-header-selected-bg: #273039;
+    --sheet-selection-bg: #2a323a;
+    --sheet-accent: #4fc2c2;
+    --sheet-accent-strong: #7bd9d9;
+    --sheet-menu-bg: #1f252b;
+    --sheet-muted: #7e8a96;
+    --sheet-text: #e6edf3;
   }
   table {
     border-collapse: separate;
@@ -946,23 +1041,23 @@
     white-space: nowrap;
     empty-cells: show;
     border: 0px;
-    background-color: #fff;
+    background-color: var(--sheet-bg);
     width: 0;
     border-top: 1px solid transparent;
     border-left: 1px solid transparent;
-    border-right: 1px solid #ccc;
-    border-bottom: 1px solid #ccc;
+    border-right: 1px solid var(--sheet-border);
+    border-bottom: 1px solid var(--sheet-border);
     text-indent: 0;
   }
   /* tr.selected {
     background-color: #b8e7e3;
   } */
   thead > tr > td.selected {
-    background-color: #dcdcdc;
-    color: teal;
+    background-color: var(--sheet-header-selected-bg);
+    color: var(--sheet-accent);
   }
   thead > tr > td {
-    background-color: #f3f3f3;
+    background-color: var(--sheet-header-bg);
     padding: 2px;
     cursor: s-resize;
     box-sizing: border-box;
@@ -976,8 +1071,8 @@
     cursor: default;
     line-height: 14px;
     font-size: 14px;
-    border-top: 1px solid #ccc;
-    border-left: 1px solid #ccc;
+    border-top: 1px solid var(--sheet-border);
+    border-left: 1px solid var(--sheet-border);
     border-right: 1px solid transparent;
     border-bottom: 1px solid transparent;
   }
@@ -990,7 +1085,7 @@
     cursor: cell;
   }
   tbody > tr > td.selected {
-    background-color: #ddd;
+    background-color: var(--sheet-selection-bg);
     transition: all 0.1s linear;
   }
   tbody > tr > th,
@@ -999,10 +1094,10 @@
     left: 0;
     cursor: e-resize;
     top: auto;
-    background: #f3f3f3;
-    border-top: 1px solid #ccc;
-    border-left: 1px solid #ccc;
-    border-right: 1px solid #ccc;
+    background: var(--sheet-header-bg);
+    border-top: 1px solid var(--sheet-border);
+    border-left: 1px solid var(--sheet-border);
+    border-right: 1px solid var(--sheet-border);
     z-index: 10;
     font-weight: normal;
     height: 27px;
@@ -1014,8 +1109,8 @@
     text-align: center;
   } */
   tbody > tr > th.selected {
-    background-color: #dcdcdc !important;
-    color: teal;
+    background-color: var(--sheet-header-selected-bg) !important;
+    color: var(--sheet-accent);
   }
 
   div.col-resize {
@@ -1059,30 +1154,30 @@
   .top-select,
   .bottom-select,
   .col-line {
-    border-bottom: 2px solid teal;
+    border-bottom: 2px solid var(--sheet-accent);
   }
   .left-select,
   .right-select {
-    border-left: 2px solid teal;
+    border-left: 2px solid var(--sheet-accent);
   }
 
   .top-extend,
   .bottom-extend {
-    border-bottom: 2px solid #aaa;
+    border-bottom: 2px solid var(--sheet-muted);
   }
   .left-extend,
   .right-extend {
-    border-left: 2px solid #aaa;
+    border-left: 2px solid var(--sheet-muted);
   }
   .row-line {
-    border-right: 1px solid teal;
+    border-right: 1px solid var(--sheet-accent);
   }
   .square {
     height: 8px;
     width: 8px;
     cursor: crosshair;
-    border: 1px solid white;
-    background: teal;
+    border: 1px solid var(--sheet-bg);
+    background: var(--sheet-accent);
     transform: translate3D(-40%, -40%, 0);
   }
   .hidden {

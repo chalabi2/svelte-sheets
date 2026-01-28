@@ -17,13 +17,13 @@ You will need to have typescript svelte-preprocess enabled in your webpack/rollu
 
 ### Installation
 
-`npm i -S svelte-sheets`
+`npm i -S @chalabi/svelte-sheets`
 
 ### Example
 
 ```html
 <script>
-  import { Sheet } from "svelte-sheets";
+  import { Sheet } from "@chalabi/svelte-sheets";
 
   let style = {
     A1: "background-color: red",
@@ -44,7 +44,7 @@ Alternatively you can use the toolbar to open any kind of excel files
 
 ```html
 <script>
-  import { Sheet, Toolbar } from "svelte-sheets";
+  import { Sheet, Toolbar } from "@chalabi/svelte-sheets";
 
   let sheetNames;
   let sheets;
@@ -72,10 +72,22 @@ You can configure the table such as height and many other things with the option
 let options = {
   tableHeight: "90vh",
   defaultColWidth: "50px",
+  readOnly: true,
 };
 ```
 
-Many of this options will be implemented later, so expect most of them to be unresponsible.
+Common flags:
+
+- `readOnly`: true to disable all edits and resizing
+- `editable`: false to disable edits (equivalent to readOnly)
+- `disableHover`: true to disable hover-based selection updates
+
+Theme:
+
+- `theme`: set to `"dark"` for the bundled dark tokens (default is `"light"`)
+- `class` / `className`: pass a custom class to the root element to override CSS variables
+
+Many of these options will be implemented later, so expect most of them to be unresponsive.
 
 ### Things yet to be done
 

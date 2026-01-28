@@ -40,6 +40,10 @@ export const defaultconfig = {
   rowDrag: true,
   // Allow table edition
   editable: true,
+  // Global read-only mode (overrides editable)
+  readOnly: false,
+  // Disable hover tracking/selection updates
+  disableHover: false,
   // Allow new rows
   allowInsertRow: true,
   // Allow new rows

@@ -10,10 +10,15 @@
   export let clear: (e: any) => any[][];
   // delete is a reserved word...
   export let delet: (e: any) => any[][];
+  export let readOnly = false;
 </script>
 
 <div class="menu" class:hidden={!show} style={`top: ${y}px; left: ${x}px`}>
-  <div class="item flex justify-between" on:click={(e) => cut(e)}>
+  <div
+    class="item flex justify-between"
+    class:disabled={readOnly}
+    on:click={(e) => !readOnly && cut(e)}
+  >
     <div>Cut</div>
     <div class="disabled">⌘X</div>
   </div>
@@ -21,14 +26,30 @@
     <div>Copy</div>
     <div class="disabled">⌘C</div>
   </div>
-  <div class="item flex justify-between" on:click={(e) => paste(e)}>
+  <div
+    class="item flex justify-between"
+    class:disabled={readOnly}
+    on:click={(e) => !readOnly && paste(e)}
+  >
     <div>Paste</div>
     <div class="disabled">⌘P</div>
   </div>
   <div class="divider" />
-  <div class="item">Insert</div>
-  <div class="item" on:click={(e) => delet(e)}>Delete</div>
-  <div class="item" on:click={(e) => clear(e)}>Clear contents</div>
+  <div class="item" class:disabled={readOnly}>Insert</div>
+  <div
+    class="item"
+    class:disabled={readOnly}
+    on:click={(e) => !readOnly && delet(e)}
+  >
+    Delete
+  </div>
+  <div
+    class="item"
+    class:disabled={readOnly}
+    on:click={(e) => !readOnly && clear(e)}
+  >
+    Clear contents
+  </div>
 </div>
 
 <style>
@@ -37,11 +58,12 @@
     position: fixed;
     z-index: 20;
     min-width: 10rem;
-    background: #ddd;
+    background: var(--sheet-menu-bg);
     border-radius: 10px;
+    color: var(--sheet-text);
   }
   .disabled {
-    color: #aaa;
+    color: var(--sheet-muted);
   }
   .divider {
     padding-top: 0.5rem;
@@ -63,6 +85,14 @@
     border-radius: 0.25rem;
   }
   .item:hover {
-    background-color: rgb(79, 194, 194);
+    background-color: var(--sheet-accent);
+    color: var(--sheet-bg);
+  }
+  .item.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .item.disabled:hover {
+    background-color: transparent;
   }
 </style>
