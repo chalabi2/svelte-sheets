@@ -21,6 +21,14 @@
   ],
   "author": "Thibaut Duchêne",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chalabi2/svelte-sheets.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chalabi2/svelte-sheets/issues"
+  },
+  "homepage": "https://github.com/chalabi2/svelte-sheets#readme",
   "devDependencies": {
     "@sveltejs/adapter-auto": "^7.0.0",
     "@sveltejs/adapter-static": "^3.0.10",
