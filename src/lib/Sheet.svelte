@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, createEventDispatcher } from "svelte";
   import * as XLSX from "xlsx";
+
+  const dispatch = createEventDispatcher();
   import { resizable } from "./actions/index.js";
   import { draggable } from "./actions/draggable.js";
   import type { Config } from "./defaultconfig.js";
@@ -235,6 +237,9 @@
     } else {
       data[rowIndex][colIndex] = newValue;
     }
+    
+    // Dispatch inputchange event for boolean toggle
+    dispatch('inputchange', { value: newValue, row: { i: rowIndex }, column: { i: colIndex } });
     
     historyPush(data, rows, columns, style);
     cmdz = false;
