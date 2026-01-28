@@ -89,6 +89,13 @@ Theme:
 
 Many of these options will be implemented later, so expect most of them to be unresponsive.
 
+### Development
+
+- The demo app lives in `src/routes/+page.svelte`
+- `npm run dev` for the demo
+- `npm test` to run unit tests
+- `npm run package` to build the library output
+
 ### Things yet to be done
 
 - Make a svelte REPL demonstrating the library (awaiting repl typescript support)
