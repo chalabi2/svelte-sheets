@@ -234,7 +234,7 @@
   let scrollTop;
 
   $: (function scrollX() {
-    if (!scrollLeft || !colElements) return;
+    if (scrollLeft === undefined || !colElements) return;
     // if (!scrollLeft) ;
     // horizontal scrolling
     for (let v = 0; v < colElements.length; v += 1) {
@@ -268,7 +268,7 @@
   })();
 
   $: (function scrollY() {
-    if (!scrollTop || !rowElements) return;
+    if (scrollTop === undefined || !rowElements) return;
 
     // vertical scrolling
     for (let v = 0; v < rowElements.length; v += 1) {
@@ -324,6 +324,49 @@
       // document.addEventListener("touchmove", jexcel.touchEndControls);
       document?.addEventListener("keydown", onKeyDown);
       document?.addEventListener("keyup", onKeyUp);
+
+      // Initialize hotkeys in browser only
+      hotkeys("ctrl+z, command+z", function (e) {
+        if (isReadOnly) return;
+        e.preventDefault();
+        cmdz = true;
+        if (historyIndex == 0) return;
+        historyIndex -= 1;
+        const res = JSON.parse(history[historyIndex]);
+        data = res.data;
+        columns = res.columns;
+        rows = res.rows;
+        style = res.style;
+        setTimeout((_) => (cmdz = false), 10);
+      });
+
+      hotkeys("ctrl+shift+z, command+shift+z", function (e) {
+        if (isReadOnly) return;
+        console.log("redo");
+        e.preventDefault();
+        cmdz = true;
+        if (history.length - 1 == historyIndex) return;
+        historyIndex = historyIndex + 1;
+        const res = JSON.parse(history[historyIndex]);
+        data = res.data;
+        columns = res.columns;
+        rows = res.rows;
+        style = res.style;
+        setTimeout((_) => (cmdz = false), 10);
+      });
+
+      hotkeys("ctrl+c, command+c, ctrl+x, command+x", function (e, handler) {
+        if (isReadOnly && handler?.key?.includes("x")) return;
+        e.preventDefault();
+        clipboard = JSON.stringify(selected);
+      });
+
+      hotkeys("ctrl+v, command+v", function (e) {
+        if (isReadOnly) return;
+        e.preventDefault();
+        if (!clipboard) return;
+        data = pasteSelection(data, JSON.parse(clipboard), selected);
+      });
     }
   });
 
@@ -530,48 +573,6 @@
     // on keyup just reinitialize everything
     keypressed[e.keyCode] = false;
   }
-
-  hotkeys("ctrl+z, command+z", function (e) {
-    if (isReadOnly) return;
-    e.preventDefault();
-    cmdz = true;
-    if (historyIndex == 0) return;
-    historyIndex -= 1;
-    const res = JSON.parse(history[historyIndex]);
-    data = res.data;
-    columns = res.columns;
-    rows = res.rows;
-    style = res.style;
-    setTimeout((_) => (cmdz = false), 10);
-  });
-
-  hotkeys("ctrl+shift+z, command+shift+z", function (e) {
-    if (isReadOnly) return;
-    console.log("redo");
-    e.preventDefault();
-    cmdz = true;
-    if (history.length - 1 == historyIndex) return;
-    historyIndex = historyIndex + 1;
-    const res = JSON.parse(history[historyIndex]);
-    data = res.data;
-    columns = res.columns;
-    rows = res.rows;
-    style = res.style;
-    setTimeout((_) => (cmdz = false), 10);
-  });
-
-  hotkeys("ctrl+c, command+c, ctrl+x, command+x", function (e, handler) {
-    if (isReadOnly && handler?.key?.includes("x")) return;
-    e.preventDefault();
-    clipboard = JSON.stringify(selected);
-  });
-
-  hotkeys("ctrl+v, command+v", function (e) {
-    if (isReadOnly) return;
-    e.preventDefault();
-    if (!clipboard) return;
-    data = pasteSelection(data, JSON.parse(clipboard), selected);
-  });
 
   function onKeyDown(e) {
     keypressed[e.keyCode] = true;
