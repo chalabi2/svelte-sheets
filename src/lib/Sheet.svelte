@@ -639,6 +639,8 @@
           d.push(row);
         }
         data = d;
+      } else if (!columns.length) {
+        columns = Array.from({ length: data[0].length }, () => ({}));
       }
     }
 
@@ -874,7 +876,7 @@
           {/each}
         </tr>
       </thead>
-      <tbody class="draggable" bind:this={viewport} on:scroll={handle_scroll}>
+      <tbody class="draggable" on:scroll={handle_scroll}>
         {#each visibleY as r}
           <tr
             class="virtual-row"
