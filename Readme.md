@@ -35,9 +35,15 @@ You will need to have typescript svelte-preprocess enabled in your webpack/rollu
   let data = [
     ["mazda", "renault", "volkswagen"][("10000km", "20000km", "300000km")],
   ];
+  const options = {
+    tableHeight: "70vh",
+    defaultColWidth: "120px",
+    readOnly: true,
+    disableHover: true,
+  };
 </script>
 
-<Sheet {style} {mergeCells} {columns} {data} />
+<Sheet {style} {mergeCells} {columns} {data} {options} theme="dark" />
 ```
 
 Alternatively you can use the toolbar to open any kind of excel files
