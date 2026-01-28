@@ -1,6 +1,6 @@
 {
   "name": "@chalabi/svelte-sheets",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Run your excel sheet in the browser!",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

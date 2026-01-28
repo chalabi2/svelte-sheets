@@ -139,12 +139,23 @@
     }
   }
 
-  function getColumnsWidth(i: number) {
-    return Number(
-      typeof columns[i]?.width == "string"
-        ? columns[i]?.width.replace("px", "")
-        : columns[i]?.width || config.defaultColWidth
-    );
+  function getDefaultColWidth(): number {
+    const w = config.defaultColWidth;
+    if (typeof w === "string") {
+      return Number(w.replace("px", "")) || 50;
+    }
+    return Number(w) || 50;
+  }
+
+  function getColumnsWidth(i: number): number {
+    const colWidth = columns[i]?.width;
+    if (colWidth !== undefined && colWidth !== null) {
+      if (typeof colWidth === "string") {
+        return Number(colWidth.replace("px", "")) || getDefaultColWidth();
+      }
+      return Number(colWidth) || getDefaultColWidth();
+    }
+    return getDefaultColWidth();
   }
 
   function getRowHeight(i: number) {
@@ -191,7 +202,7 @@
     await tick(); // wait until the DOM is up to date
     
     const defaultHeight = 24;
-    const defaultWidth = config.defaultColWidth || 50;
+    const defaultWidth = getDefaultColWidth();
     // Safety limits to prevent infinite loops
     const maxRowsToRender = Math.max(data.length, Math.ceil((viewport_height + bottom_buffer * 2) / defaultHeight) + 10, 100);
     const maxColsToRender = Math.max(columns.length, Math.ceil((viewport_width + right_buffer * 2) / defaultWidth) + 10, 50);
@@ -249,7 +260,7 @@
     if (scrollLeft === undefined || !colElements) return;
     // Ensure we have valid dimensions to work with
     const totalCols = Math.max(columns.length, endX, 1);
-    const defaultWidth = config.defaultColWidth || 50;
+    const defaultWidth = getDefaultColWidth();
     // if (!scrollLeft) ;
     // horizontal scrolling
     for (let v = 0; v < colElements.length; v += 1) {
