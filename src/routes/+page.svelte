@@ -1,5 +1,5 @@
 <script>
-  import XLSX from "xlsx";
+  import * as XLSX from "xlsx";
 
   import { Open, Sheet, download } from "../lib";
   import example from "./_example.json";

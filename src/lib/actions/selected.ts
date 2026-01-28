@@ -1,4 +1,4 @@
-import XLSX from "xlsx";
+import * as XLSX from "xlsx";
 
 export function selection(node, { selection, rows, columns }) {
   const viewport = node.getBoundingClientRect();

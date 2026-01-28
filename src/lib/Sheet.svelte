@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import XLSX from "xlsx";
+  import * as XLSX from "xlsx";
   import { resizable } from "./actions/index.js";
   import { draggable } from "./actions/draggable.js";
   import type { Config } from "./defaultconfig.js";

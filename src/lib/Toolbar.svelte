@@ -1,5 +1,5 @@
 <script lang="ts">
-  import XLSX from "xlsx";
+  import * as XLSX from "xlsx";
   import { convert } from "./convert.js";
 
   export let sheetNames;
