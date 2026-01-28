@@ -87,8 +87,8 @@
   // implement virtual list
   export let startY = 0;
   export let startX = 0;
-  export let endY = 0;
-  export let endX = 0;
+  export let endY = 50; // Initial render batch
+  export let endX = 20; // Initial render batch
   // virtual list state
   let height_map = [];
   let width_map = [];
@@ -681,8 +681,8 @@
   let square;
   let squareX;
   let squareY;
-  let topLeft;
-  let bottomRight;
+  let topLeft = { c: 0, r: 0 };
+  let bottomRight = { c: 0, r: 0 };
   $: if (mounted) {
     if (extendRaf) cancelAnimationFrame(extendRaf);
     extendRaf = requestAnimationFrame(() => {
