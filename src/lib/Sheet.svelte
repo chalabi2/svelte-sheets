@@ -75,6 +75,8 @@
   let pendingHover: { x: number; y: number } | null = null;
   let lastHover: { x: number; y: number } | null = null;
   let lastDrag: { x: number; y: number } | null = null;
+  let selectionRaf: number | null = null;
+  let extendRaf: number | null = null;
 
   // $: ((_) => {
   //   history = history.slice(0, historyIndex);
@@ -433,6 +435,97 @@
     return;
   }
 
+  function getSelectionRect(start, end) {
+    if (!contents || !viewport) return null;
+    const endC = Math.max(end.c - 1, start.c);
+    const endR = Math.max(end.r - 1, start.r);
+    const tlCell = contents.querySelector(
+      `td[data-x="${start.c}"][data-y="${start.r}"]`
+    );
+    const brCell = contents.querySelector(
+      `td[data-x="${endC}"][data-y="${endR}"]`
+    );
+    if (!tlCell || !brCell) return null;
+    const containerRect = viewport.getBoundingClientRect();
+    const tlRect = tlCell.getBoundingClientRect();
+    const brRect = brCell.getBoundingClientRect();
+    const left = tlRect.left - containerRect.left + viewport.scrollLeft;
+    const top = tlRect.top - containerRect.top + viewport.scrollTop;
+    const right = brRect.right - containerRect.left + viewport.scrollLeft;
+    const bottom = brRect.bottom - containerRect.top + viewport.scrollTop;
+    if (
+      !Number.isFinite(left) ||
+      !Number.isFinite(top) ||
+      !Number.isFinite(right) ||
+      !Number.isFinite(bottom)
+    ) {
+      return null;
+    }
+    return { left, top, right, bottom };
+  }
+
+  function updateSelectionOverlays() {
+    if (!mounted) return;
+    const tl = (selected && decode(selected[0])) || { c: 0, r: 0 };
+    const br = (selected && decode(selected[1])) || { c: 0, r: 0 };
+    topLeft = {
+      c: br.c < tl.c ? br.c : tl.c,
+      r: br.r < tl.r ? br.r : tl.r,
+    };
+    bottomRight = {
+      c: br.c > tl.c ? br.c + 1 : tl.c + 1,
+      r: br.r > tl.r ? br.r + 1 : tl.r + 1,
+    };
+    const rect = getSelectionRect(topLeft, bottomRight);
+    if (!rect) {
+      tops.style = "display: none";
+      rights.style = "display: none";
+      bottoms.style = "display: none";
+      lefts.style = "display: none";
+      colLine.style = "display: none";
+      rowLine.style = "display: none";
+      square.style = "display: none";
+      return;
+    }
+    const { left, top, right, bottom } = rect;
+    tops.style = `display: block; width: ${right - left}px; left: ${left}px; top: ${top}px`;
+    rights.style = `display: block; height: ${bottom - top}px; left: ${right}px; top: ${top}px`;
+    bottoms.style = `display: block; width: ${right - left}px; left: ${left}px; top: ${bottom}px`;
+    lefts.style = `display: block; height: ${bottom - top}px; left: ${left}px; top: ${top}px`;
+    colLine.style = `display: block; width: ${right - left}px; left: ${left}px; top: ${top}px;`;
+    rowLine.style = `display: block; height: ${bottom - top}px; left: ${left}px; top: ${top}px`;
+    square.style = `display: block; left:${right}px; top:${bottom}px`;
+    selectWidth = right - left;
+    selectHeight = bottom - top;
+  }
+
+  function updateExtendOverlays() {
+    if (!extension || !extended) return;
+    const tl = (selected && decode(extended[0])) || { c: 0, r: 0 };
+    const br = (selected && decode(extended[1])) || { c: 0, r: 0 };
+    topLeft = {
+      c: br.c < tl.c ? br.c : tl.c,
+      r: br.r < tl.r ? br.r : tl.r,
+    };
+    bottomRight = {
+      c: br.c > tl.c ? br.c + 1 : tl.c + 1,
+      r: br.r > tl.r ? br.r + 1 : tl.r + 1,
+    };
+    const rect = getSelectionRect(topLeft, bottomRight);
+    if (!rect) {
+      topextend.style = "display: none";
+      rightextend.style = "display: none";
+      bottomextend.style = "display: none";
+      leftextend.style = "display: none";
+      return;
+    }
+    const { left, top, right, bottom } = rect;
+    topextend.style = `display: block; width: ${right - left}px; left: ${left}px; top: ${top}px`;
+    rightextend.style = `display: block; height: ${bottom - top}px; left: ${right}px; top: ${top}px`;
+    bottomextend.style = `display: block; width: ${right - left}px; left: ${left}px; top: ${bottom}px`;
+    leftextend.style = `display: block; height: ${bottom - top}px; left: ${left}px; top: ${top}px`;
+  }
+
   function onKeyUp(e) {
     // on keyup just reinitialize everything
     keypressed[e.keyCode] = false;
@@ -587,94 +680,23 @@
   let squareY;
   let topLeft;
   let bottomRight;
-  $: {
-    if (extension && extended) {
-      let tl = (selected && decode(extended[0])) || { c: 0, r: 0 };
-      let br = (selected && decode(extended[1])) || { c: 0, r: 0 };
-      topLeft = {
-        c: br.c < tl.c ? br.c : tl.c,
-        r: br.r < tl.r ? br.r : tl.r,
-      };
-      bottomRight = {
-        c: br.c > tl.c ? br.c + 1 : tl.c + 1,
-        r: br.r > tl.r ? br.r + 1 : tl.r + 1,
-      };
-      let top = 28;
-      let right = 51;
-      let bottom = 28;
-      let left = 51;
-      for (let i = 0; i < topLeft.r; i++) {
-        top = top + getRowHeight(i);
-      }
-      for (let i = 0; i < topLeft.c; i++) {
-        left = left + getColumnsWidth(i);
-      }
-      for (let i = 0; i < bottomRight.r; i++) {
-        bottom = bottom + getRowHeight(i);
-      }
-      for (let i = 0; i < bottomRight.c; i++) {
-        right = right + getColumnsWidth(i);
-      }
-      topextend.style = `width: ${
-        right - left
-      }px; left: ${left}px; top: ${top}px`;
-      rightextend.style = `height: ${
-        bottom - top
-      }px; left: ${right}px; top: ${top}px`;
-      bottomextend.style = `width: ${
-        right - left
-      }px; left: ${left}px; top: ${bottom}px`;
-      leftextend.style = `height: ${
-        bottom - top
-      }px; left: ${left}px; top: ${top}px`;
-    }
+  $: if (mounted) {
+    if (extendRaf) cancelAnimationFrame(extendRaf);
+    extendRaf = requestAnimationFrame(() => {
+      extendRaf = null;
+      updateExtendOverlays();
+    });
   }
 
   let selectWidth: number;
   let selectHeight: number;
 
-  $: {
-    if (mounted) {
-      let tl = (selected && decode(selected[0])) || { c: 0, r: 0 };
-      let br = (selected && decode(selected[1])) || { c: 0, r: 0 };
-      topLeft = {
-        c: br.c < tl.c ? br.c : tl.c,
-        r: br.r < tl.r ? br.r : tl.r,
-      };
-      bottomRight = {
-        c: br.c > tl.c ? br.c + 1 : tl.c + 1,
-        r: br.r > tl.r ? br.r + 1 : tl.r + 1,
-      };
-      let top = 28;
-      let right = 51;
-      let bottom = 28;
-      let left = 51;
-      for (let i = 0; i < topLeft.r; i++) {
-        top = top + getRowHeight(i);
-      }
-      for (let i = 0; i < topLeft.c; i++) {
-        left = left + getColumnsWidth(i);
-      }
-      for (let i = 0; i < bottomRight.r; i++) {
-        bottom = bottom + getRowHeight(i);
-      }
-      for (let i = 0; i < bottomRight.c; i++) {
-        right = right + getColumnsWidth(i);
-      }
-      tops.style = `width: ${right - left}px; left: ${left}px; top: ${top}px`;
-      rights.style = `height: ${
-        bottom - top
-      }px; left: ${right}px; top: ${top}px`;
-      bottoms.style = `width: ${
-        right - left
-      }px; left: ${left}px; top: ${bottom}px`;
-      lefts.style = `height: ${bottom - top}px; left: ${left}px; top: ${top}px`;
-      colLine.style = `width: ${right - left}px; left: ${left}px; top: 28px;`;
-      rowLine.style = `height: ${bottom - top}px; left: 51px; top: ${top}px`;
-      square.style = `left:${right}px; top:${bottom}px`;
-      selectWidth = right - left;
-      selectHeight = bottom - top;
-    }
+  $: if (mounted) {
+    if (selectionRaf) cancelAnimationFrame(selectionRaf);
+    selectionRaf = requestAnimationFrame(() => {
+      selectionRaf = null;
+      updateSelectionOverlays();
+    });
   }
   // history logic
 
@@ -742,17 +764,18 @@
         <div class="row-line absolute" bind:this={rowLine} />
         <div
           tabindex={-1}
-        use:draggable
-        on:dragging={(e) => {
-          if (isReadOnly) return;
-          if (lastDrag && lastDrag.x === e.detail.x && lastDrag.y === e.detail.y) {
-            return;
-          }
-          lastDrag = { x: e.detail.x, y: e.detail.y };
-          squareX = e.detail.x;
-          squareY = e.detail.y;
-        }}
+          use:draggable
+          on:dragging={(e) => {
+            if (isReadOnly) return;
+            if (lastDrag && lastDrag.x === e.detail.x && lastDrag.y === e.detail.y) {
+              return;
+            }
+            lastDrag = { x: e.detail.x, y: e.detail.y };
+            squareX = e.detail.x;
+            squareY = e.detail.y;
+          }}
           class="square absolute interactive"
+          class:hidden={isReadOnly || config.disableHover || !config.selectionCopy}
           id="square"
           bind:this={square}
         />
