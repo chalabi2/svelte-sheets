@@ -196,6 +196,50 @@
     }
   }
 
+  function isBooleanCell(colIndex: number, rowIndex: number): boolean {
+    // Don't treat first row as boolean (headers)
+    if (rowIndex === 0) return false;
+    
+    return (
+      config.booleanColumns?.includes(colIndex) ||
+      config.booleanRows?.includes(rowIndex)
+    );
+  }
+
+  function toggleBooleanCell(colIndex: number, rowIndex: number) {
+    if (isReadOnly) return;
+    if (columns[colIndex]?.readOnly) return;
+    if (!isBooleanCell(colIndex, rowIndex)) return;
+    
+    cmdz = true;
+    const currentValue = data[rowIndex]?.[colIndex];
+    const newValue = !currentValue;
+    
+    if (rowIndex > data.length - 1) {
+      data = [
+        ...data,
+        ...Array.from({ length: rowIndex - data.length + 1 }, (v, i) => {
+          if (i == rowIndex) {
+            return Array.from({ length: columns.length }, (_, i) => {
+              if (i == colIndex) {
+                return newValue;
+              } else {
+                return "";
+              }
+            });
+          } else {
+            return Array.from({ length: columns.length }, (_) => "");
+          }
+        }),
+      ];
+    } else {
+      data[rowIndex][colIndex] = newValue;
+    }
+    
+    historyPush(data, rows, columns, style);
+    cmdz = false;
+  }
+
   async function refresh(data, viewport_height, viewport_width) {
     if (!viewport) return;
     const { scrollTop, scrollLeft } = viewport;
@@ -997,6 +1041,7 @@
                 on:dblclick={(_) =>
                   !isReadOnly &&
                   !(columns[x.i] && columns[x.i].readOnly) &&
+                  !isBooleanCell(x.i, r.i) &&
                   (edition = [x.i, r.i])}
                 class:readonly={columns[x.i] && columns[x.i].readOnly}
                 style={computeStyles(
@@ -1009,7 +1054,7 @@
                   r.data && r.data[x.i + 1]
                 )}
               >
-                {#if String(edition) == String([x.i, r.i])}
+                {#if String(edition) == String([x.i, r.i]) && !isBooleanCell(x.i, r.i)}
                   <input
                     autofocus
                     on:blur={(e) => {
@@ -1022,6 +1067,20 @@
                       x.i
                     )}px; height: ${getRowHeight(r.i)}px; min-height: 22px;`}
                   />
+                {:else if isBooleanCell(x.i, r.i)}
+                  <span 
+                    class="boolean-cell"
+                    class:readonly={columns[x.i] && columns[x.i].readOnly}
+                    on:click|stopPropagation={() => toggleBooleanCell(x.i, r.i)}
+                    role="button"
+                    tabindex="-1"
+                  >
+                    {#if r.data && r.data[x.i]}
+                      <span class="checkmark">✓</span>
+                    {:else}
+                      <span class="crossmark">⦻</span>
+                    {/if}
+                  </span>
                 {:else}{(r.data && r.data[x.i]) || ""}{/if}
               </td>
             {/each}
@@ -1249,5 +1308,29 @@
   }
   .hidden {
     display: none;
+  }
+  .boolean-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    user-select: none;
+  }
+  .boolean-cell.readonly {
+    cursor: default;
+  }
+  .checkmark {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--sheet-accent);
+    line-height: 1;
+  }
+  .crossmark {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ef4444;
+    line-height: 1;
   }
 </style>

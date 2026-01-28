@@ -17,6 +17,10 @@ export const defaultconfig = {
   // Column width that is used by default
   defaultColWidth: 50,
   defaultColAlign: "center",
+  // Boolean columns for checkbox mode
+  booleanColumns: [] as number[],
+  // Boolean rows for checkbox mode
+  booleanRows: [] as number[],
   // Spare rows and columns
   minSpareRows: 0,
   minSpareCols: 0,
