@@ -23,7 +23,7 @@
     ["Atlas", "Noah", "Shipped", "Retro", "High", "Follow-up pending"],
   ];
 
-  let data = rows;
+  let tableData = rows;
 
   $: options = {
     tableHeight: "70vh",
@@ -97,7 +97,7 @@
   <div class="sheet-frame">
     <Sheet
       columns={columns}
-      data={data}
+      data={tableData}
       style={headerStyle}
       {options}
       clipboard={null}
