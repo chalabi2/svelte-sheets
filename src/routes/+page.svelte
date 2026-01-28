@@ -1,92 +1,184 @@
-<script>
-  import * as XLSX from "xlsx";
+<script lang="ts">
+  import { Sheet } from "$lib";
 
-  import { Open, Sheet, download } from "../lib";
-  import example from "./_example.json";
-  let open;
-  let currentValue;
-  let selected;
-  let active = 0;
-  let sheets = [example];
-  let sheetNames = [];
+  let readOnly = false;
+  let disableHover = false;
+  let darkTheme = false;
+  let accent = "#ff7a59";
 
-  function onload(loadedSheets, loadedSheetNames) {
-    sheets = loadedSheets;
-    sheetNames = loadedSheetNames;
-  }
+  const columns = [
+    { width: "140px" },
+    { width: "160px" },
+    { width: "120px" },
+    { width: "200px" },
+    { width: "120px" },
+    { width: "160px" },
+  ];
 
-  const decode = XLSX.utils.decode_cell;
+  const rows = [
+    ["Project", "Owner", "Status", "Next milestone", "Priority", "Notes"],
+    ["Falcon", "Ava", "In progress", "Tooling", "High", "Vendor review"],
+    ["Nimbus", "Kai", "Paused", "Specs", "Low", "Waiting on design"],
+    ["Orion", "Maya", "In review", "Pilot run", "Medium", "QA checklist"],
+    ["Atlas", "Noah", "Shipped", "Retro", "High", "Follow-up pending"],
+  ];
 
-  $: sheet = sheets[active];
+  let data = rows;
 
-  $: decoded = selected?.[0] ? decode(selected[0]) : { c: 0, r: 0 };
+  $: options = {
+    tableHeight: "70vh",
+    defaultColWidth: "140px",
+    readOnly,
+    disableHover,
+    editable: !readOnly,
+    selectionCopy: !readOnly,
+    columnResize: !readOnly,
+    rowResize: !readOnly,
+    columnDrag: false,
+    rowDrag: false,
+    wordWrap: false,
+  } as any;
+
+  const columnLetter = (index: number) => {
+    let n = index + 1;
+    let result = "";
+    while (n > 0) {
+      const rem = (n - 1) % 26;
+      result = String.fromCharCode(65 + rem) + result;
+      n = Math.floor((n - 1) / 26);
+    }
+    return result;
+  };
+
+  $: headerStyle = columns.reduce((acc, _col, idx) => {
+    acc[`${columnLetter(idx)}1`] = `background-color: ${accent}; color: #0f172a; font-weight: 700;`;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const accentPresets = ["#ff7a59", "#7cdb9a", "#ffd166", "#9bb7ff", "#f59bd6"];
 </script>
 
-<Open bind:open {onload} />
+<section class="demo-shell" data-theme={darkTheme ? "dark" : "light"}>
+  <header class="demo-header">
+    <div>
+      <h1>Sheet Demo</h1>
+      <p>Lightweight example with theme + read-only toggles.</p>
+    </div>
+    <div class="controls">
+      <label class="toggle">
+        <input type="checkbox" bind:checked={readOnly} />
+        <span>Read-only</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" bind:checked={disableHover} />
+        <span>Disable hover</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" bind:checked={darkTheme} />
+        <span>Dark theme</span>
+      </label>
+      <div class="accent">
+        <span>Accent</span>
+        <div class="swatches">
+          {#each accentPresets as color}
+            <button
+              type="button"
+              class="swatch"
+              style={`background:${color}`}
+              aria-label={`Accent ${color}`}
+              on:click={() => (accent = color)}
+            />
+          {/each}
+        </div>
+      </div>
+    </div>
+  </header>
 
-<button class="btn secondary" on:click={(_) => open.click()}>
-  <i class="fas fa-folder-open mr-1" />Open .xlsx File
-</button>
-
-{#if sheet}
-  <button
-    class="btn secondary"
-    on:click={(_) => download(sheets, "example" + ".xlsx")}
-  >
-    <i class="fas fa-download mr-1" />Download file
-  </button>
-{/if}
-
-{#if sheet}
-  <input
-    bind:value={sheet.data[decoded.r][decoded.c]}
-    style={{ width: "50vw" }}
-    on:change={(v) => console.log("change", v)}
-  />
-  <Sheet
-    bind:data={sheet.data}
-    columns={sheet.columns}
-    rows={sheet.rows}
-    mergeCells={sheet.mergeCells || {}}
-    options={{ tableHeight: "90vh" }}
-    style={sheet.style || {}}
-    bind:currentValue
-    bind:selected
-  />
-{/if}
-
-<a href="https://github.com/ticruz38/svelte-sheets" class="github-link">
-  <span />
-</a>
-
-<div class="sheet-names">
-  {#each sheetNames as sn, i (sn)}
-    <span class:selected={sheet.sheetName == sn} on:click={(_) => (active = i)}
-      >{sn}</span
-    >
-  {/each}
-</div>
+  <div class="sheet-frame">
+    <Sheet
+      columns={columns}
+      data={data}
+      style={headerStyle}
+      {options}
+      clipboard={null}
+      theme={darkTheme ? "dark" : "light"}
+    />
+  </div>
+</section>
 
 <style>
-  .sheet-names {
-    text-align: center;
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    padding: 1rem;
+  :global(body) {
+    margin: 0;
+    font-family: "Space Grotesk", "IBM Plex Mono", ui-sans-serif, system-ui;
+    background: #f6f5f1;
   }
-  .github-link {
-    position: fixed;
-    top: 0.5rem;
-    right: 0.5rem;
-    background-image: url("/github.png");
-    height: 2rem;
-    width: 2rem;
-    background-position: center;
-    background-repeat: none;
-    background-size: cover;
+  .demo-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 40px;
   }
-  .selected {
-    text-decoration: underline;
+  .demo-shell[data-theme="dark"] {
+    background: #0f1115;
+    color: #e6edf3;
+    border-radius: 24px;
+  }
+  .demo-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 6px;
+  }
+  p {
+    margin: 0;
+    color: rgba(20, 20, 20, 0.7);
+  }
+  .demo-shell[data-theme="dark"] p {
+    color: rgba(230, 237, 243, 0.7);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    align-items: center;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .accent {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+  }
+  .swatches {
+    display: flex;
+    gap: 6px;
+  }
+  .swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+  }
+  .sheet-frame {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 18px;
+    padding: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  }
+  .demo-shell[data-theme="dark"] .sheet-frame {
+    background: rgba(17, 20, 26, 0.9);
+    border-color: rgba(255, 255, 255, 0.06);
   }
 </style>

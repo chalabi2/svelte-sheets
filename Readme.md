@@ -2,7 +2,7 @@
 
 Ultra fast excel sheets in the browser. Hugely inspired by JExcel, built on XLSX shoulders.
 
-=> Find a live example [Here](https://ticruz38.github.io/svelte-sheets/)
+=> Find a live example [Here](https://chalabi2.github.io/svelte-sheets/)
 
 ### Motivation
 
