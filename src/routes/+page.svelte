@@ -8,22 +8,41 @@
 
   const columns = [
     { width: "140px" },
-    { width: "160px" },
     { width: "120px" },
-    { width: "200px" },
-    { width: "120px" },
+    { width: "100px" },
     { width: "160px" },
+    { width: "100px" },
+    { width: "120px" },
+    { width: "100px" },
+    { width: "180px" },
   ];
 
-  const rows = [
-    ["Project", "Owner", "Status", "Next milestone", "Priority", "Notes"],
-    ["Falcon", "Ava", "In progress", "Tooling", "High", "Vendor review"],
-    ["Nimbus", "Kai", "Paused", "Specs", "Low", "Waiting on design"],
-    ["Orion", "Maya", "In review", "Pilot run", "Medium", "QA checklist"],
-    ["Atlas", "Noah", "Shipped", "Retro", "High", "Follow-up pending"],
-  ];
+  const headers = ["Project", "Owner", "Status", "Milestone", "Priority", "Budget", "Progress", "Notes"];
+  const projects = ["Falcon", "Nimbus", "Orion", "Atlas", "Zenith", "Nova", "Apex", "Vertex", "Pulse", "Echo"];
+  const owners = ["Ava", "Kai", "Maya", "Noah", "Liam", "Emma", "Zoe", "Ethan", "Mia", "Leo"];
+  const statuses = ["In progress", "Paused", "In review", "Shipped", "Planning", "On hold", "Complete"];
+  const milestones = ["Tooling", "Specs", "Pilot run", "Retro", "MVP", "Beta", "Launch", "Review", "Testing"];
+  const priorities = ["High", "Medium", "Low", "Critical"];
+  const notes = ["Vendor review", "Waiting on design", "QA checklist", "Follow-up pending", "Needs approval", "On track", "Blocked", "Ahead of schedule"];
 
-  let tableData = rows;
+  function generateRows(count: number) {
+    const rows = [headers];
+    for (let i = 0; i < count - 1; i++) {
+      rows.push([
+        projects[i % projects.length] + "-" + (i + 1),
+        owners[i % owners.length],
+        statuses[i % statuses.length],
+        milestones[i % milestones.length],
+        priorities[i % priorities.length],
+        "$" + ((i + 1) * 5000).toLocaleString(),
+        Math.floor(Math.random() * 100) + "%",
+        notes[i % notes.length],
+      ]);
+    }
+    return rows;
+  }
+
+  let tableData = generateRows(100);
 
   $: options = {
     tableHeight: "70vh",

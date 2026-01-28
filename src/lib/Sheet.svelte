@@ -186,45 +186,57 @@
   }
 
   async function refresh(data, viewport_height, viewport_width) {
+    if (!viewport) return;
     const { scrollTop, scrollLeft } = viewport;
     await tick(); // wait until the DOM is up to date
+    
+    const defaultHeight = 24;
+    const defaultWidth = config.defaultColWidth || 50;
+    // Safety limits to prevent infinite loops
+    const maxRowsToRender = Math.max(data.length, Math.ceil((viewport_height + bottom_buffer * 2) / defaultHeight) + 10, 100);
+    const maxColsToRender = Math.max(columns.length, Math.ceil((viewport_width + right_buffer * 2) / defaultWidth) + 10, 50);
+    
     let content_height = top - scrollTop - bottom_buffer;
     let content_width = left - scrollLeft - left_buffer;
     // vertical
     let y = startY;
-    while (content_height < viewport_height) {
+    while (content_height < viewport_height && y < maxRowsToRender) {
       let row = rowElements[y - startY];
       if (!row) {
         endY = y + 1;
         await tick(); // render the newly visible row
         row = rowElements[y - startY];
+        // If still no row after tick, break to prevent infinite loop
+        if (!row) break;
       }
       const row_height = (height_map[y] = getRowHeight(y));
       content_height += row_height;
       y += 1;
     }
-    endY = y;
+    endY = Math.max(y, 1);
     let remaining = data.length - endY;
-    average_height = (top + content_height) / endY;
-    bottom = remaining * average_height;
+    average_height = endY > 0 ? (top + content_height) / endY : defaultHeight;
+    bottom = remaining * (average_height || defaultHeight);
     height_map.length = data.length;
     // horizontal
     let x = startX;
-    while (content_width < viewport_width) {
+    while (content_width < viewport_width && x < maxColsToRender) {
       let col = colElements[x - startX];
       if (!col) {
         endX = x + 1;
         await tick(); // render the newly visible col
         col = colElements[x - startX];
+        // If still no col after tick, break to prevent infinite loop
+        if (!col) break;
       }
       const col_width = (width_map[x] = getColumnsWidth(x));
       content_width += col_width;
       x += 1;
     }
-    endX = x;
+    endX = Math.max(x, 1);
     let remains = columns.length - endX;
-    average_width = (left + content_width) / endX;
-    right = remains * average_width;
+    average_width = endX > 0 ? (left + content_width) / endX : defaultWidth;
+    right = remains * (average_width || defaultWidth);
     width_map.length = columns.length;
   }
 
@@ -235,6 +247,9 @@
 
   $: (function scrollX() {
     if (scrollLeft === undefined || !colElements) return;
+    // Ensure we have valid dimensions to work with
+    const totalCols = Math.max(columns.length, endX, 1);
+    const defaultWidth = config.defaultColWidth || 50;
     // if (!scrollLeft) ;
     // horizontal scrolling
     for (let v = 0; v < colElements.length; v += 1) {
@@ -242,8 +257,8 @@
     }
     let c = 0;
     let x = 0;
-    while (true) {
-      const col_width = width_map[c] || average_width;
+    while (c < totalCols) {
+      const col_width = width_map[c] || average_width || defaultWidth;
       if (x + col_width > scrollLeft - left_buffer) {
         startX = c;
         left = x;
@@ -252,23 +267,32 @@
       x += col_width;
       c += 1;
     }
-    while (true) {
-      x += width_map[c] || average_width;
+    // Safety: ensure we found a valid startX
+    if (c >= totalCols) {
+      startX = Math.max(0, totalCols - 1);
+      left = x;
+    }
+    while (c < totalCols + Math.ceil((viewport_width + right_buffer) / defaultWidth)) {
+      const w = width_map[c] || average_width || defaultWidth;
+      x += w;
       c += 1;
       if (x > scrollLeft + viewport_width + right_buffer) break;
     }
-    endX = c;
+    endX = Math.max(c, 1);
     const remaining =
       endX > columns.length
-        ? (viewport_width + right_buffer) / 24
+        ? (viewport_width + right_buffer) / defaultWidth
         : columns.length - endX;
-    average_width = x / endX;
+    average_width = endX > 0 ? x / endX : defaultWidth;
     // while (c < columns.length) width_map[c++] = average_width;
-    right = remaining * average_width;
+    right = remaining * (average_width || defaultWidth);
   })();
 
   $: (function scrollY() {
     if (scrollTop === undefined || !rowElements) return;
+    // Ensure we have valid dimensions to work with
+    const totalRows = Math.max(data.length, endY, 1);
+    const defaultHeight = 24;
 
     // vertical scrolling
     for (let v = 0; v < rowElements.length; v += 1) {
@@ -276,8 +300,8 @@
     }
     let r = 0;
     let y = 0;
-    while (true) {
-      const row_height = height_map[r] || average_height;
+    while (r < totalRows) {
+      const row_height = height_map[r] || average_height || defaultHeight;
       if (y + row_height > scrollTop - top_buffer) {
         startY = r;
         top = y;
@@ -286,19 +310,25 @@
       y += row_height;
       r += 1;
     }
-    while (true) {
-      y += height_map[r] || average_height;
+    // Safety: ensure we found a valid startY
+    if (r >= totalRows) {
+      startY = Math.max(0, totalRows - 1);
+      top = y;
+    }
+    while (r < totalRows + Math.ceil((viewport_height + bottom_buffer) / defaultHeight)) {
+      const h = height_map[r] || average_height || defaultHeight;
+      y += h;
       r += 1;
       if (y > scrollTop + viewport_height + bottom_buffer) break;
     }
-    endY = r;
+    endY = Math.max(r, 1);
     const remaining =
       endY > data.length
-        ? (viewport_height + bottom_buffer) / 24
+        ? (viewport_height + bottom_buffer) / defaultHeight
         : data.length - endY;
-    average_height = y / endY;
+    average_height = endY > 0 ? y / endY : defaultHeight;
     // while (r < data.length) height_map[r++] = average_height;
-    bottom = remaining * average_height;
+    bottom = remaining * (average_height || defaultHeight);
   })();
 
   function handle_scroll(e) {
